@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ZNGL 低层示例 02 · 射线拾取与高亮</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e1015;
+    --panel: rgba(15, 19, 27, .84);
+    --line: rgba(255, 255, 255, .10);
+    --fg: #e9eef7;
+    --dim: #8e99ab;
+    --accent: #67b7ff;
+    --hot: #ffb547;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font: 14px/1.55 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #cv {
+    position: fixed; inset: 0; display: block;
+    width: 100%; height: 100%; touch-action: none; cursor: crosshair;
+  }
+  .hud {
+    position: fixed; left: 28px; top: 26px;
+    pointer-events: none; user-select: none;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    background: rgba(14, 16, 21, .62);
+  }
+  .badge i {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--hot); box-shadow: 0 0 10px var(--hot);
+  }
+  h1 { margin: 13px 0 5px; font-size: 20px; font-weight: 600; }
+  .sub { margin: 0; color: var(--dim); font-size: 13px; max-width: 48ch; }
+  .panel {
+    position: fixed; right: 28px; top: 26px; width: 286px;
+    padding: 14px 16px 13px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); backdrop-filter: blur(10px); user-select: none;
+  }
+  .panel h2 {
+    margin: 0 0 9px; font-size: 11px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim);
+  }
+  .row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 5px 0; border-top: 1px solid rgba(255,255,255,.055);
+    font-size: 12px;
+  }
+  .row:first-of-type { border-top: 0; }
+  .row span:first-child { color: var(--dim); white-space: nowrap; }
+  .row span:last-child {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #sel-name { color: var(--hot); }
+  .legend {
+    position: fixed; right: 28px; bottom: 52px;
+    color: var(--dim); font-size: 12px; text-align: right;
+    user-select: none; pointer-events: none;
+  }
+  .legend i {
+    display: inline-block; width: 8px; height: 8px; margin: 0 6px 0 12px;
+    border-radius: 2px; vertical-align: 1px;
+  }
+  .footer {
+    position: fixed; left: 28px; right: 28px; bottom: 22px;
+    display: flex; justify-content: space-between; gap: 18px;
+    color: var(--dim); font-size: 12px; pointer-events: none; user-select: none;
+  }
+  .keys kbd {
+    display: inline-block; min-width: 19px; padding: 1px 5px; margin: 0 2px;
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+    background: rgba(255,255,255,.04); color: var(--fg);
+    font: 11px/1.5 ui-monospace, Consolas, monospace; text-align: center;
+  }
+  .hint {
+    position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%);
+    padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px;
+    background: rgba(15, 19, 27, .80); color: var(--dim); font-size: 12px;
+    pointer-events: none; user-select: none; white-space: nowrap;
+  }
+  .hint b { color: var(--hot); font-weight: 600; }
+  #fallback {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 9;
+    background: rgba(10, 12, 16, .96); padding: 24px;
+  }
+  #fallback.show { display: grid; }
+  .fallback-box {
+    max-width: 620px; padding: 22px 24px; border: 1px solid var(--line);
+    border-radius: 12px; background: #141a24;
+  }
+  .fallback-box h2 { margin: 0 0 8px; font-size: 17px; }
+  .fallback-box p { margin: 7px 0; color: var(--dim); }
+  .fallback-box code {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    background: rgba(255,255,255,.07); color: #cfe6ff;
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  @media (max-width: 760px) {
+    .panel { display: none; }
+    .hud { left: 18px; top: 18px; }
+    .footer { left: 18px; right: 18px; bottom: 16px; flex-direction: column; gap: 6px; }
+    .legend { display: none; }
+    .sub { max-width: 34ch; }
+  }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="ZNGL 低层射线拾取示例：三个可点击的盒子"></canvas>
+
+<div class="hud">
+  <div class="badge"><i></i>ZNGL low-level · r5</div>
+  <h1>02 · 射线拾取 + 高亮</h1>
+  <p class="sub">用低层 <b>Ray / raycast / rayFromCamera</b> 从屏幕坐标反投射线；命中后直接改 <b>Material.emissive</b> 做高亮。全程没有 Engine。</p>
+</div>
+
+<div class="panel" aria-hidden="true">
+  <h2>拾取状态</h2>
+  <div class="row"><span>选中零件</span><span id="sel-name">—</span></div>
+  <div class="row"><span>三角面</span><span id="sel-face">—</span></div>
+  <div class="row"><span>实现</span><span>raycast()</span></div>
+  <div class="row"><span>高亮</span><span>emissive 自发光</span></div>
+  <div class="row"><span>后端</span><span>WebGL2-only</span></div>
+</div>
+
+<div class="legend" aria-hidden="true">
+  <i style="background:#6b9ee6"></i>零件 A
+  <i style="background:#e8944a"></i>零件 B
+  <i style="background:#61c08c"></i>零件 C
+</div>
+
+<div class="hint">点一下任意盒子 · <b>命中即高亮</b> · 再点空白处取消</div>
+
+<div class="footer">
+  <div class="keys"><kbd>拖拽</kbd> 旋转 · <kbd>滚轮</kbd> 缩放 · <kbd>Shift</kbd>+拖拽 平移</div>
+  <div>零构建 · 单文件 · 双击即可打开</div>
+</div>
+
+<div id="fallback">
+  <div class="fallback-box">
+    <h2>无法启动低层示例</h2>
+    <p id="fallback-msg"></p>
+    <p>请把 r5 冻结包的 <code>dist/zngl.js</code> 复制到本页同级的 <code>dist/</code> 目录：<code>dist/zngl.js</code>。</p>
+    <p>不需要构建；本页只通过 <code>&lt;script src="./dist/zngl.js"&gt;&lt;/script&gt;</code> 使用 IIFE 版本。示例仓库本身不包含 dist，也不包含 Engine 源码或许可校验逻辑。</p>
+  </div>
+</div>
+
+<script src="./dist/zngl.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('cv');
+  var fallback = document.getElementById('fallback');
+  var fallbackMsg = document.getElementById('fallback-msg');
+  var selName = document.getElementById('sel-name');
+  var selFace = document.getElementById('sel-face');
+
+  function fail(message) {
+    fallbackMsg.textContent = message;
+    fallback.classList.add('show');
+  }
+
+  if (typeof ZNGL === 'undefined') {
+    fail('没有找到 ZNGL：./dist/zngl.js 未加载。');
+    return;
+  }
+
+  /* ---------- 1. 上下文 / 渲染器 / 场景 ---------- */
+  var gl = null;
+  try {
+    gl = ZNGL.createWebGL2Context(canvas, { antialias: true, alpha: false, depth: true });
+  } catch (err) {
+    fail('创建 WebGL2 上下文失败：' + (err && err.message ? err.message : String(err)));
+    return;
+  }
+  if (!gl) {
+    fail('当前浏览器没有可用的 WebGL2 上下文。ZNGL 只支持 WebGL2。');
+    return;
+  }
+
+  var renderer = new ZNGL.Renderer(gl, {
+    clearColor: [0.055, 0.063, 0.086, 1.0],
+    frustumCulling: false
+  });
+
+  var scene = new ZNGL.Scene();
+  var camera = new ZNGL.OrbitCamera({
+    fov: 45,
+    aspect: 1,
+    near: 0.1,
+    far: 10000,
+    theta: 0.66,
+    phi: 1.10,
+    distance: 340
+  });
+  camera.target = new Float32Array([0, 0, 0]);
+
+  var lighting = new ZNGL.Lighting();
+  lighting.ambient = new ZNGL.AmbientLight({ color: [1, 1, 1], intensity: 0.52 });
+  lighting.addDirectional(new ZNGL.DirectionalLight({
+    direction: [-0.45, -0.72, -0.52],
+    color: [1, 1, 1],
+    intensity: 1.4
+  }));
+  lighting.addDirectional(new ZNGL.DirectionalLight({
+    direction: [0.62, -0.18, 0.45],
+    color: [0.56, 0.70, 1.0],
+    intensity: 0.55
+  }));
+
+  /* ---------- 2. 三个盒子：共用几何，不同位置/颜色 ---------- */
+  var geometry = ZNGL.Geometry.box(0.5);
+  ZNGL.uploadGeometry(gl, geometry);
+
+  var specs = [
+    { name: '零件 A', x: -95, color: [0.42, 0.62, 0.90] },
+    { name: '零件 B', x: 0,   color: [0.91, 0.58, 0.29] },
+    { name: '零件 C', x: 95,  color: [0.38, 0.75, 0.55] }
+  ];
+  var nodes = [];
+
+  for (var i = 0; i < specs.length; i++) {
+    var spec = specs[i];
+    var material = new ZNGL.Material({
+      color: spec.color,
+      roughness: 0.36,
+      metalness: 0.16,
+      emissive: [0, 0, 0]
+    });
+    var node = new ZNGL.Node(spec.name);
+    node.mesh = { geometry: geometry, material: material };
+    node.position = [spec.x, 0, 0];
+    node.scale = [70, 50, 40];
+    node.userData.baseEmissive = [0, 0, 0];
+    scene.add(node);
+    nodes.push(node);
+  }
+
+  /* ---------- 3. 拾取 + 高亮（低层 API 组合） ---------- */
+  var selected = null;
+  var HIGHLIGHT = [1.0, 0.62, 0.08];
+
+  function setHighlight(node, on) {
+    if (!node || !node.mesh || !node.mesh.material) return;
+    var mat = node.mesh.material;
+    mat.emissive = on ? HIGHLIGHT.slice() : (node.userData.baseEmissive || [0, 0, 0]).slice();
+  }
+
+  function select(node) {
+    if (selected === node) return;
+    if (selected) setHighlight(selected, false);
+    selected = node;
+    if (selected) {
+      setHighlight(selected, true);
+      selName.textContent = selected.name;
+      selFace.textContent = (typeof selected.faceIndex === 'number' && selected.faceIndex >= 0)
+        ? '#' + selected.faceIndex : '—';
+    } else {
+      selName.textContent = '—';
+      selFace.textContent = '—';
+    }
+  }
+
+  /* 屏幕坐标 → NDC → 世界射线 → raycast（r5 的 raycast 会处理节点世界矩阵） */
+  function pickAtNdc(ndcX, ndcY) {
+    scene.update();
+    var ray = ZNGL.rayFromCamera(camera, ndcX, ndcY);
+    var hit = ZNGL.raycast(scene, ray);
+    select(hit || null);
+    return hit;
+  }
+
+  function pickFromClient(clientX, clientY) {
+    var rect = canvas.getBoundingClientRect();
+    var nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+    var ny = -((clientY - rect.top) / rect.height) * 2 + 1;
+    return pickAtNdc(nx, ny);
+  }
+
+  /* ---------- 4. 尺寸 / 绘制 ---------- */
+  function measure() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cssW = canvas.clientWidth || window.innerWidth || 1;
+    var cssH = canvas.clientHeight || window.innerHeight || 1;
+    var w = Math.max(1, Math.round(cssW * dpr));
+    var h = Math.max(1, Math.round(cssH * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    camera.aspect = w / h;
+    return { w: w, h: h };
+  }
+
+  function draw() {
+    var size = measure();
+    renderer.render(scene, camera, lighting, size.w, size.h);
+  }
+
+  var frames = 0;
+  function loop() {
+    camera.update();
+    draw();
+    frames++;
+    window.requestAnimationFrame(loop);
+  }
+
+  /* ---------- 5. 交互：拖拽旋转，轻点拾取 ---------- */
+  var dragging = false;
+  var button = 0;
+  var lastX = 0;
+  var lastY = 0;
+  var moved = 0;
+
+  canvas.addEventListener('pointerdown', function (ev) {
+    dragging = true;
+    button = ev.button;
+    moved = 0;
+    lastX = ev.clientX;
+    lastY = ev.clientY;
+    if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!dragging) return;
+    var dx = ev.clientX - lastX;
+    var dy = ev.clientY - lastY;
+    moved += Math.abs(dx) + Math.abs(dy);
+    lastX = ev.clientX;
+    lastY = ev.clientY;
+    if (ev.shiftKey || button === 1 || button === 2) camera.pan(dx, dy);
+    else camera.rotate(dx, dy);
+  });
+
+  canvas.addEventListener('pointerup', function (ev) {
+    if (!dragging) return;
+    dragging = false;
+    if (moved < 6 && button === 0) pickFromClient(ev.clientX, ev.clientY);
+  });
+
+  canvas.addEventListener('pointercancel', function () { dragging = false; });
+  canvas.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+  canvas.addEventListener('wheel', function (ev) {
+    ev.preventDefault();
+    camera.zoom(ev.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+
+  window.addEventListener('resize', draw);
+  window.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') select(null);
+  });
+
+  /* ---------- 6. 自动化验证钩子（不参与示例逻辑） ---------- */
+  window.__znglDemo = {
+    ready: true,
+    gl: gl,
+    renderer: renderer,
+    scene: scene,
+    camera: camera,
+    nodes: nodes,
+    pickAt: pickAtNdc,
+    pickClient: pickFromClient,
+    clear: function () { select(null); },
+    getSelected: function () {
+      return selected ? {
+        name: selected.name,
+        faceIndex: selected.faceIndex,
+        emissive: selected.mesh.material.emissive.slice()
+      } : null;
+    },
+    render: function () { camera.update(); draw(); },
+    frames: function () { return frames; },
+    getStats: function () {
+      return { glError: gl.getError(), frames: frames, width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
+    }
+  };
+
+  draw();
+  loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ZNGL 低层示例 01 · 清屏与一个盒子</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e1015;
+    --panel: rgba(15, 19, 27, .82);
+    --line: rgba(255, 255, 255, .10);
+    --fg: #e9eef7;
+    --dim: #8e99ab;
+    --accent: #67b7ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font: 14px/1.55 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #cv {
+    position: fixed; inset: 0; display: block;
+    width: 100%; height: 100%; touch-action: none; cursor: grab;
+  }
+  #cv:active { cursor: grabbing; }
+  .hud {
+    position: fixed; left: 28px; top: 26px;
+    pointer-events: none; user-select: none;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    background: rgba(14, 16, 21, .62);
+  }
+  .badge i {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 10px var(--accent);
+  }
+  h1 {
+    margin: 13px 0 5px; font-size: 20px; font-weight: 600; letter-spacing: .01em;
+  }
+  .sub { margin: 0; color: var(--dim); font-size: 13px; max-width: 46ch; }
+  .panel {
+    position: fixed; right: 28px; top: 26px; width: 264px;
+    padding: 14px 16px 13px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); backdrop-filter: blur(10px);
+    user-select: none;
+  }
+  .panel h2 {
+    margin: 0 0 9px; font-size: 11px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim);
+  }
+  .row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 5px 0; border-top: 1px solid rgba(255,255,255,.055);
+    font-size: 12px;
+  }
+  .row:first-of-type { border-top: 0; }
+  .row span:first-child { color: var(--dim); }
+  .row span:last-child { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+  .footer {
+    position: fixed; left: 28px; right: 28px; bottom: 22px;
+    display: flex; justify-content: space-between; gap: 18px;
+    color: var(--dim); font-size: 12px; pointer-events: none; user-select: none;
+  }
+  .keys kbd {
+    display: inline-block; min-width: 19px; padding: 1px 5px; margin: 0 2px;
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+    background: rgba(255,255,255,.04); color: var(--fg);
+    font: 11px/1.5 ui-monospace, Consolas, monospace; text-align: center;
+  }
+  #fallback {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 9;
+    background: rgba(10, 12, 16, .96); padding: 24px;
+  }
+  #fallback.show { display: grid; }
+  .fallback-box {
+    max-width: 620px; padding: 22px 24px; border: 1px solid var(--line);
+    border-radius: 12px; background: #141a24;
+  }
+  .fallback-box h2 { margin: 0 0 8px; font-size: 17px; }
+  .fallback-box p { margin: 7px 0; color: var(--dim); }
+  .fallback-box code {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    background: rgba(255,255,255,.07); color: #cfe6ff;
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  @media (max-width: 720px) {
+    .panel { display: none; }
+    .hud { left: 18px; top: 18px; }
+    .footer { left: 18px; right: 18px; bottom: 16px; flex-direction: column; gap: 6px; }
+    .sub { max-width: 32ch; }
+  }
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="ZNGL 低层 API 渲染的一个长方体"></canvas>
+
+<div class="hud">
+  <div class="badge"><i></i>ZNGL low-level · r5</div>
+  <h1>01 · 清屏 + 一个盒子</h1>
+  <p class="sub">只用低层 API：<b>Renderer / Scene / Geometry / Node / Material / OrbitCamera</b>。没有 Engine，也没有许可逻辑。</p>
+</div>
+
+<div class="panel" aria-hidden="true">
+  <h2>技术参数</h2>
+  <div class="row"><span>尺寸</span><span>100 × 60 × 30 mm</span></div>
+  <div class="row"><span>几何</span><span>Geometry.box(0.5)</span></div>
+  <div class="row"><span>渲染</span><span>Renderer.render()</span></div>
+  <div class="row"><span>相机</span><span>OrbitCamera · 透视</span></div>
+  <div class="row"><span>后端</span><span>WebGL2-only</span></div>
+</div>
+
+<div class="footer">
+  <div class="keys"><kbd>拖拽</kbd> 旋转 · <kbd>滚轮</kbd> 缩放 · <kbd>Shift</kbd>+拖拽 平移</div>
+  <div>零构建 · 单文件 · 双击即可打开</div>
+</div>
+
+<div id="fallback">
+  <div class="fallback-box">
+    <h2>无法启动低层示例</h2>
+    <p id="fallback-msg"></p>
+    <p>请把 r5 冻结包的 <code>dist/zngl.js</code> 复制到本页同级的 <code>dist/</code> 目录：<code>dist/zngl.js</code>。</p>
+    <p>不需要构建；本页只通过 <code>&lt;script src="./dist/zngl.js"&gt;&lt;/script&gt;</code> 使用 IIFE 版本。示例仓库本身不包含 dist，也不包含 Engine 源码或许可校验逻辑。</p>
+  </div>
+</div>
+
+<script src="./dist/zngl.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('cv');
+  var fallback = document.getElementById('fallback');
+  var fallbackMsg = document.getElementById('fallback-msg');
+
+  function fail(message) {
+    fallbackMsg.textContent = message;
+    fallback.classList.add('show');
+  }
+
+  if (typeof ZNGL === 'undefined') {
+    fail('没有找到 ZNGL：./dist/zngl.js 未加载。');
+    return;
+  }
+
+  /* ---------- 1. WebGL2 上下文 + 渲染器 ---------- */
+  var gl = null;
+  try {
+    gl = ZNGL.createWebGL2Context(canvas, { antialias: true, alpha: false, depth: true });
+  } catch (err) {
+    fail('创建 WebGL2 上下文失败：' + (err && err.message ? err.message : String(err)));
+    return;
+  }
+  if (!gl) {
+    fail('当前浏览器没有可用的 WebGL2 上下文。ZNGL 只支持 WebGL2。');
+    return;
+  }
+
+  var renderer = new ZNGL.Renderer(gl, {
+    clearColor: [0.055, 0.063, 0.086, 1.0],
+    frustumCulling: false
+  });
+
+  /* ---------- 2. 场景 / 相机 / 灯光 ---------- */
+  var scene = new ZNGL.Scene();
+
+  var camera = new ZNGL.OrbitCamera({
+    fov: 45,
+    aspect: 1,
+    near: 0.1,
+    far: 10000,
+    theta: 0.72,
+    phi: 1.12,
+    distance: 250
+  });
+  camera.target = new Float32Array([0, 0, 0]);
+
+  var lighting = new ZNGL.Lighting();
+  lighting.ambient = new ZNGL.AmbientLight({ color: [1, 1, 1], intensity: 0.52 });
+  lighting.addDirectional(new ZNGL.DirectionalLight({
+    direction: [-0.45, -0.72, -0.52],
+    color: [1, 1, 1],
+    intensity: 1.45
+  }));
+  lighting.addDirectional(new ZNGL.DirectionalLight({
+    direction: [0.62, -0.18, 0.45],
+    color: [0.56, 0.70, 1.0],
+    intensity: 0.55
+  }));
+
+  /* ---------- 3. 几何 + 节点（低层，直接拼 Node.mesh） ---------- */
+  var geometry = ZNGL.Geometry.box(0.5);       // 边长 1 的立方体
+  ZNGL.uploadGeometry(gl, geometry);
+
+  var material = new ZNGL.Material({
+    color: [0.56, 0.63, 0.73],
+    roughness: 0.38,
+    metalness: 0.18
+  });
+
+  var box = new ZNGL.Node('盒子 100×60×30');
+  box.mesh = { geometry: geometry, material: material };
+  box.scale = [100, 60, 30];
+  scene.add(box);
+
+  /* ---------- 4. 画布尺寸 / 绘制 ---------- */
+  function measure() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cssW = canvas.clientWidth || window.innerWidth || 1;
+    var cssH = canvas.clientHeight || window.innerHeight || 1;
+    var w = Math.max(1, Math.round(cssW * dpr));
+    var h = Math.max(1, Math.round(cssH * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    camera.aspect = w / h;
+    return { w: w, h: h };
+  }
+
+  function draw() {
+    var size = measure();
+    renderer.render(scene, camera, lighting, size.w, size.h);
+  }
+
+  var frames = 0;
+  function loop() {
+    camera.update();          // OrbitCamera 的阻尼在 update() 内推进
+    draw();
+    frames++;
+    window.requestAnimationFrame(loop);
+  }
+
+  /* ---------- 5. 交互：自己实现的低层轨道控制 ---------- */
+  var dragging = false;
+  var button = 0;
+  var lastX = 0;
+  var lastY = 0;
+
+  canvas.addEventListener('pointerdown', function (ev) {
+    dragging = true;
+    button = ev.button;
+    lastX = ev.clientX;
+    lastY = ev.clientY;
+    if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!dragging) return;
+    var dx = ev.clientX - lastX;
+    var dy = ev.clientY - lastY;
+    lastX = ev.clientX;
+    lastY = ev.clientY;
+    if (ev.shiftKey || button === 1 || button === 2) camera.pan(dx, dy);
+    else camera.rotate(dx, dy);
+  });
+
+  function stopDrag() { dragging = false; }
+  canvas.addEventListener('pointerup', stopDrag);
+  canvas.addEventListener('pointercancel', stopDrag);
+  canvas.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+  canvas.addEventListener('wheel', function (ev) {
+    ev.preventDefault();
+    camera.zoom(ev.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+
+  window.addEventListener('resize', draw);
+
+  /* ---------- 6. 自动化验证钩子（不参与示例逻辑） ---------- */
+  window.__znglDemo = {
+    ready: true,
+    gl: gl,
+    renderer: renderer,
+    scene: scene,
+    camera: camera,
+    render: function () { camera.update(); draw(); },
+    frames: function () { return frames; },
+    getStats: function () {
+      return { glError: gl.getError(), frames: frames, width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
+    }
+  };
+
+  draw();
+  loop();
+})();
+</script>
+</body>
+</html>
