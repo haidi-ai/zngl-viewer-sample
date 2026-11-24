@@ -1,5 +1,10 @@
 # ZNGL Viewer Sample（低层 API · 零构建）
 
+> **License（先看这句）**：本仓库里的**示例代码**采用 MIT 许可，见
+> [`LICENSE`](LICENSE)。MIT **只覆盖示例页面本身**；**不覆盖 `dist/`，也不覆盖
+> ZNGL 引擎**——二者都不在本仓库中，`dist/zngl.js` 由使用者从正式发布包自行取得并按
+> ZNGL 自身条款使用（见 [`LICENSE-NOTICE.md`](LICENSE-NOTICE.md)）。
+
 三个可以直接双击打开的单文件示例（把 r5 的 `dist/zngl.js` 放进 `dist/` 后），
 演示 **只用 ZNGL 低层 API** 做查看器：
 

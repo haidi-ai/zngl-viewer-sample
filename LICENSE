@@ -1,0 +1,67 @@
+# zngl-viewer-sample License
+
+Copyright (c) 2026 haidi-ai (ZNGL project)
+<https://github.com/haidi-ai/zngl-viewer-sample>
+
+This repository contains sample viewer pages that call the ZNGL low-level
+API. **It does not contain ZNGL itself.**
+
+## 1. Sample code — MIT License
+
+The MIT License text at the bottom of this file applies **only** to the sample
+code authored in this repository:
+
+- `01-hello.html`, `02-pick.html`, `03-hiddenline.html` (their HTML, CSS and
+  JavaScript), and
+- any future sample code files added to this repository.
+
+## 2. What the MIT grant does NOT cover
+
+- **`dist/` and the ZNGL runtime.** `dist/zngl.js` is not distributed in this
+  repository (it is `.gitignore`d). It is **not** licensed by this file; get it
+  from the official ZNGL release package and use it under ZNGL's own license /
+  EULA terms.
+- **The ZNGL engine, license-check logic, license files and signing material.**
+  None are present here, and none are licensed by this file.
+- **The ZNKernel-II kernel.** Not present; not licensed here.
+- **Screenshots** under `screenshots/`: copyright (c) 2026 haidi-ai (ZNGL
+  project), all rights reserved (included to document these samples).
+- **Documentation text** (`README.md`, `LICENSE-NOTICE.md`, this file): provided
+  for reference; link to it or quote short excerpts with attribution, but do
+  not republish it wholesale without permission.
+- **Trademarks.** "ZNGL", "ZNKernel-II" and associated logos are marks of their
+  owner; MIT does not grant trademark rights.
+
+`LICENSE-NOTICE.md` remains in force as the explanation of ZNGL's licensing
+tiers (low-level API free, Engine commercial). It is **not** replaced by this
+file. If this file and `LICENSE-NOTICE.md` conflict on any ZNGL material, the
+official ZNGL terms prevail.
+
+## 3. No warranty
+
+The sample code is provided "as is", without warranty of any kind, as stated
+in the MIT text below.
+
+---
+
+MIT License
+
+Copyright (c) 2026 haidi-ai (ZNGL project)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
